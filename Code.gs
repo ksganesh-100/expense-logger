@@ -9,14 +9,18 @@
  * Set the shared PIN once via:  Project Settings > Script Properties > PIN
  * (or run setPin() below after editing the value).
  *
- * The Sheet must have two tabs:
- *   Expenses : Timestamp | Date | Description | Amount | Category | Who | Raw
- *   Rules    : Keyword   | Category
+ * The Sheet must have three tabs:
+ *   Expenses   : Timestamp | Date | Description | Amount | Category | Who | Raw
+ *   Rules      : Keyword   | Category
+ *   Categories : Category  | Bucket   (Needs / Wants / Culture / Unexpected)
  */
 
 var SHEET_EXPENSES = 'Expenses';
 var SHEET_RULES = 'Rules';
+var SHEET_CATEGORIES = 'Categories';
 var FALLBACK_CATEGORY = 'Miscellaneous';
+var BUCKET_ORDER = ['Needs', 'Wants', 'Culture', 'Unexpected'];
+var UNCATEGORIZED_BUCKET = 'Uncategorized';
 
 // ---- HTTP entrypoints -------------------------------------------------------
 
@@ -151,7 +155,23 @@ function getSummary_(month) {
   });
   categories.sort(function (a, b) { return b.total - a.total; });
 
-  return { month: month, total: total, categories: categories };
+  // Group categories under their Kakeibo bucket (Needs/Wants/Culture/Unexpected);
+  // anything without a mapping in the Categories tab (e.g. Miscellaneous) falls
+  // into Uncategorized so it's easy to spot and fix.
+  var bucketMap = getCategoryBuckets_();
+  var byBucket = {};
+  categories.forEach(function (cat) {
+    var bucket = bucketMap[cat.category] || UNCATEGORIZED_BUCKET;
+    if (!byBucket[bucket]) byBucket[bucket] = { bucket: bucket, total: 0, categories: [] };
+    byBucket[bucket].total += cat.total;
+    byBucket[bucket].categories.push(cat);
+  });
+
+  var buckets = BUCKET_ORDER.concat([UNCATEGORIZED_BUCKET])
+    .filter(function (b) { return byBucket[b]; })
+    .map(function (b) { return byBucket[b]; });
+
+  return { month: month, total: total, buckets: buckets };
 }
 
 // ---- Parsing & categorization ----------------------------------------------
@@ -182,14 +202,18 @@ function parseText_(raw) {
 }
 
 function categorize_(description) {
+  // Prefer the longest (most specific) keyword match, so e.g. "coaching fees"
+  // matches the more specific "coaching" over the generic "fees".
   var text = String(description || '').toLowerCase();
   var rules = getRules_();
+  var best = null;
   for (var i = 0; i < rules.length; i++) {
-    if (rules[i].keyword && text.indexOf(rules[i].keyword) !== -1) {
-      return rules[i].category;
+    var kw = rules[i].keyword;
+    if (kw && text.indexOf(kw) !== -1 && (!best || kw.length > best.keyword.length)) {
+      best = rules[i];
     }
   }
-  return FALLBACK_CATEGORY;
+  return best ? best.category : FALLBACK_CATEGORY;
 }
 
 function getRules_() {
@@ -210,6 +234,19 @@ function getCategories_() {
   rules.forEach(function (r) { if (r.category) set[r.category] = true; });
   set[FALLBACK_CATEGORY] = true;
   return Object.keys(set).sort();
+}
+
+function getCategoryBuckets_() {
+  var sheet = getSheet_(SHEET_CATEGORIES);
+  var last = sheet.getLastRow();
+  var map = {};
+  if (last < 2) return map;
+  var rows = sheet.getRange(2, 1, last - 1, 2).getValues();
+  rows.forEach(function (r) {
+    if (r[0] === '') return;
+    map[String(r[0]).trim()] = String(r[1]).trim();
+  });
+  return map;
 }
 
 // ---- Helpers ----------------------------------------------------------------
@@ -269,6 +306,76 @@ function setupSheet() {
   rules.getRange(1, 1, 1, 2).setValues([['Keyword', 'Category']]).setFontWeight('bold');
   var seed = SEED_RULES_();
   rules.getRange(2, 1, seed.length, 2).setValues(seed);
+
+  var cats = ss.getSheetByName(SHEET_CATEGORIES) || ss.insertSheet(SHEET_CATEGORIES);
+  cats.clear();
+  cats.getRange(1, 1, 1, 2).setValues([['Category', 'Bucket']]).setFontWeight('bold');
+  var catSeed = SEED_CATEGORIES_();
+  cats.getRange(2, 1, catSeed.length, 2).setValues(catSeed);
+}
+
+// Run this ONCE on an already-live sheet to add the Kakeibo buckets without
+// touching your logged Expenses or any Rules you've already customized.
+// It only: creates the Categories tab, reassigns a few keyword rows to new
+// categories (toys/books/repair), renames "Kids/Education" to "Education",
+// and appends "Kid Classes" keyword rows if they're not already there.
+function migrateToBuckets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var cats = ss.getSheetByName(SHEET_CATEGORIES) || ss.insertSheet(SHEET_CATEGORIES);
+  cats.clear();
+  cats.getRange(1, 1, 1, 2).setValues([['Category', 'Bucket']]).setFontWeight('bold');
+  var catSeed = SEED_CATEGORIES_();
+  cats.getRange(2, 1, catSeed.length, 2).setValues(catSeed);
+
+  var rules = getSheet_(SHEET_RULES);
+  var last = rules.getLastRow();
+  var overrides = { toys: 'Shopping', books: 'Books', repair: 'Repairs' };
+  if (last >= 2) {
+    var range = rules.getRange(2, 1, last - 1, 2);
+    var values = range.getValues();
+    for (var i = 0; i < values.length; i++) {
+      var keyword = String(values[i][0]).toLowerCase().trim();
+      var category = String(values[i][1]).trim();
+      if (overrides[keyword]) {
+        values[i][1] = overrides[keyword];
+      } else if (category === 'Kids/Education') {
+        values[i][1] = 'Education';
+      }
+    }
+    range.setValues(values);
+  }
+
+  var existingKeywords = getRules_().map(function (r) { return r.keyword; });
+  var newRows = [];
+  KID_CLASS_KEYWORDS_().forEach(function (kw) {
+    if (existingKeywords.indexOf(kw) === -1) newRows.push([kw, 'Kid Classes']);
+  });
+  if (newRows.length) {
+    rules.getRange(rules.getLastRow() + 1, 1, newRows.length, 2).setValues(newRows);
+  }
+}
+
+function KID_CLASS_KEYWORDS_() {
+  return ['class', 'coaching', 'academy', 'dance', 'music', 'art class', 'sports', 'swimming'];
+}
+
+function SEED_CATEGORIES_() {
+  return [
+    ['Groceries', 'Needs'],
+    ['Transport', 'Needs'],
+    ['Utilities & Bills', 'Needs'],
+    ['Household/Help', 'Needs'],
+    ['Health', 'Needs'],
+    ['Education', 'Needs'],
+    ['Food & Dining', 'Wants'],
+    ['Shopping', 'Wants'],
+    ['Entertainment', 'Wants'],
+    ['Kid Classes', 'Culture'],
+    ['Books', 'Culture'],
+    ['Repairs', 'Unexpected'],
+    ['Gifts', 'Unexpected']
+  ];
 }
 
 function SEED_RULES_() {
@@ -308,8 +415,8 @@ function SEED_RULES_() {
     ['maid', 'Household/Help'],
     ['cook', 'Household/Help'],
     ['rent', 'Household/Help'],
-    ['repair', 'Household/Help'],
     ['driver', 'Household/Help'],
+    ['repair', 'Repairs'],
     ['pharmacy', 'Health'],
     ['medicine', 'Health'],
     ['medical', 'Health'],
@@ -322,6 +429,7 @@ function SEED_RULES_() {
     ['myntra', 'Shopping'],
     ['clothes', 'Shopping'],
     ['shopping', 'Shopping'],
+    ['toys', 'Shopping'],
     ['gift', 'Gifts'],
     ['netflix', 'Entertainment'],
     ['spotify', 'Entertainment'],
@@ -329,10 +437,9 @@ function SEED_RULES_() {
     ['prime', 'Entertainment'],
     ['hotstar', 'Entertainment'],
     ['subscription', 'Entertainment'],
-    ['school', 'Kids/Education'],
-    ['fees', 'Kids/Education'],
-    ['tuition', 'Kids/Education'],
-    ['toys', 'Kids/Education'],
-    ['books', 'Kids/Education']
-  ];
+    ['school', 'Education'],
+    ['fees', 'Education'],
+    ['tuition', 'Education'],
+    ['books', 'Books']
+  ].concat(KID_CLASS_KEYWORDS_().map(function (kw) { return [kw, 'Kid Classes']; }));
 }

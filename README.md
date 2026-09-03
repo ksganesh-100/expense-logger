@@ -11,12 +11,19 @@ Sheet; the app is a static PWA you install to your home screen.
 2. Extensions → Apps Script. Delete any starter code in `Code.gs`, then paste
    in the full contents of this repo's [Code.gs](Code.gs).
 3. In the Apps Script editor, run `setupSheet` once (select it from the
-   function dropdown, click Run). This creates the `Expenses` and `Rules` tabs
-   with headers and ~55 seed keyword rules. The first run will ask you to
+   function dropdown, click Run). This creates the `Expenses`, `Rules`, and
+   `Categories` tabs with headers and seed data. The first run will ask you to
    authorize the script — that's expected, it's your own script.
 4. Choose your PIN: edit the `setPin()` function, change `'1234'` to your
    PIN, run `setPin` once. (Or set it via Project Settings → Script
    Properties → add property `PIN`.)
+
+**Already had this set up before the Kakeibo buckets were added?** Don't rerun
+`setupSheet` — it wipes your logged `Expenses`. Instead run `migrateToBuckets`
+once. It only creates the `Categories` tab and patches a few `Rules` rows
+(`toys`/`books`/`repair` move to their new categories, `Kids/Education`
+becomes `Education`, and `Kid Classes` keyword rows are added) — your logged
+expenses and any custom rules you'd already added are untouched.
 
 ## 2. Deploy the Web App
 
@@ -53,12 +60,22 @@ Netlify gives you an HTTPS URL — that's what you'll open on both phones.
 
 - **Log tab:** type e.g. `Milkbasket 5000`, tap Add. The app guesses the
   category from keywords in the `Rules` tab. Tap the category chip on any
-  recent entry to correct it.
-- **Summary tab:** pick a month, see totals per category (tap a category to
-  expand its entries) and the grand total.
+  recent entry to correct it. If it lands in `Miscellaneous`, the chip shows
+  in amber so it's easy to spot and fix.
+- **Summary tab:** pick a month, see totals grouped into the four Kakeibo
+  buckets — Needs, Wants, Culture, Unexpected — each broken down by category
+  (tap a category to expand its entries), plus the grand total. Anything that
+  falls outside those buckets (like `Miscellaneous`) shows in its own amber
+  "⚠ Uncategorized" section so it stands out and gets fixed rather than
+  silently skewing a bucket's total.
 
 ## Customizing categories
 
-Open the `Rules` tab in the Google Sheet anytime — add, edit, or remove
-`Keyword → Category` rows. No code changes or redeploy needed; the app reads
-the sheet live. Unmatched entries fall into `Miscellaneous`.
+- **Keywords:** open the `Rules` tab anytime — add, edit, or remove
+  `Keyword → Category` rows. No code changes or redeploy needed; the app reads
+  the sheet live. Unmatched entries fall into `Miscellaneous`.
+- **Buckets:** open the `Categories` tab to change which of the four buckets
+  (`Needs` / `Wants` / `Culture` / `Unexpected`) a category rolls up into, or
+  add a brand-new category there before using it in `Rules`. A category with
+  no row in this tab (including `Miscellaneous`) shows up flagged as
+  Uncategorized in the Summary until you add or fix its mapping.

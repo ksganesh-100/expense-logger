@@ -151,7 +151,7 @@ function createEntryElement(entry) {
   amount.textContent = `₹${entry.amount}`;
 
   const chip = document.createElement('button');
-  chip.className = 'chip';
+  chip.className = 'chip' + (entry.category === 'Miscellaneous' ? ' chip-uncategorized' : '');
   chip.textContent = entry.category;
   chip.addEventListener('click', () => openCategoryPicker(entry.id));
 
@@ -224,7 +224,7 @@ function renderSummary(summary) {
   summaryTotal.innerHTML = `Total: <strong>₹${summary.total.toFixed(2)}</strong>`;
   categoryList.innerHTML = '';
 
-  if (!summary.categories.length) {
+  if (!summary.buckets.length) {
     const p = document.createElement('p');
     p.className = 'status';
     p.textContent = 'No expenses logged this month yet.';
@@ -232,29 +232,49 @@ function renderSummary(summary) {
     return;
   }
 
-  summary.categories.forEach((cat) => {
-    const li = document.createElement('li');
-    li.className = 'category-item';
+  summary.buckets.forEach((bucket) => {
+    const isUncategorized = bucket.bucket === 'Uncategorized';
 
-    const head = document.createElement('div');
-    head.className = 'category-head';
-    head.innerHTML = `<span class="category-name">${escapeHtml(cat.category)}</span>
-                       <span class="category-total">₹${cat.total.toFixed(2)}</span>`;
-    head.addEventListener('click', () => li.classList.toggle('open'));
+    const section = document.createElement('li');
+    section.className = 'bucket-section' + (isUncategorized ? ' uncategorized' : '');
 
-    const details = document.createElement('div');
-    details.className = 'category-entries';
-    cat.entries.forEach((entry) => {
-      const row = document.createElement('div');
-      row.className = 'sub-row';
-      row.innerHTML = `<span>${escapeHtml(entry.description)}</span><span>₹${entry.amount}</span>`;
-      details.appendChild(row);
-    });
+    const bucketHead = document.createElement('div');
+    bucketHead.className = 'bucket-head';
+    bucketHead.innerHTML = `<span class="bucket-name">${isUncategorized ? '⚠ ' : ''}${escapeHtml(bucket.bucket)}</span>
+                             <span class="bucket-total">₹${bucket.total.toFixed(2)}</span>`;
+    section.appendChild(bucketHead);
 
-    li.appendChild(head);
-    li.appendChild(details);
-    categoryList.appendChild(li);
+    const catList = document.createElement('ul');
+    catList.className = 'category-list-nested';
+    bucket.categories.forEach((cat) => catList.appendChild(createCategoryElement(cat, isUncategorized)));
+    section.appendChild(catList);
+
+    categoryList.appendChild(section);
   });
+}
+
+function createCategoryElement(cat, isUncategorized) {
+  const li = document.createElement('li');
+  li.className = 'category-item' + (isUncategorized ? ' uncategorized' : '');
+
+  const head = document.createElement('div');
+  head.className = 'category-head';
+  head.innerHTML = `<span class="category-name">${escapeHtml(cat.category)}</span>
+                     <span class="category-total">₹${cat.total.toFixed(2)}</span>`;
+  head.addEventListener('click', () => li.classList.toggle('open'));
+
+  const details = document.createElement('div');
+  details.className = 'category-entries';
+  cat.entries.forEach((entry) => {
+    const row = document.createElement('div');
+    row.className = 'sub-row';
+    row.innerHTML = `<span>${escapeHtml(entry.description)}</span><span>₹${entry.amount}</span>`;
+    details.appendChild(row);
+  });
+
+  li.appendChild(head);
+  li.appendChild(details);
+  return li;
 }
 
 // ---- Utils -----------------------------------------------------------------
