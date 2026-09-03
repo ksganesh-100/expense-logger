@@ -116,7 +116,7 @@ logForm.addEventListener('submit', async (e) => {
     const result = await apiPost({ action: 'log', text });
     if (result.ok) {
       logStatus.textContent = `Added ${result.entry.description} — ₹${result.entry.amount}`;
-      loadRecent();
+      recentList.prepend(createEntryElement(result.entry));
     } else {
       logStatus.textContent = 'Failed to save: ' + (result.error || 'unknown error');
     }
@@ -133,31 +133,33 @@ async function loadRecent() {
 
 function renderRecent(entries) {
   recentList.innerHTML = '';
-  entries.forEach((entry) => {
-    const li = document.createElement('li');
+  entries.forEach((entry) => recentList.appendChild(createEntryElement(entry)));
+}
 
-    const left = document.createElement('div');
-    left.innerHTML = `<div class="entry-desc">${escapeHtml(entry.description)}</div>
-                       <div class="entry-date">${entry.date}</div>`;
+function createEntryElement(entry) {
+  const li = document.createElement('li');
 
-    const right = document.createElement('div');
-    right.className = 'entry-right';
+  const left = document.createElement('div');
+  left.innerHTML = `<div class="entry-desc">${escapeHtml(entry.description)}</div>
+                     <div class="entry-date">${entry.date}</div>`;
 
-    const amount = document.createElement('span');
-    amount.className = 'entry-amount';
-    amount.textContent = `₹${entry.amount}`;
+  const right = document.createElement('div');
+  right.className = 'entry-right';
 
-    const chip = document.createElement('button');
-    chip.className = 'chip';
-    chip.textContent = entry.category;
-    chip.addEventListener('click', () => openCategoryPicker(entry.id));
+  const amount = document.createElement('span');
+  amount.className = 'entry-amount';
+  amount.textContent = `₹${entry.amount}`;
 
-    right.appendChild(amount);
-    right.appendChild(chip);
-    li.appendChild(left);
-    li.appendChild(right);
-    recentList.appendChild(li);
-  });
+  const chip = document.createElement('button');
+  chip.className = 'chip';
+  chip.textContent = entry.category;
+  chip.addEventListener('click', () => openCategoryPicker(entry.id));
+
+  right.appendChild(amount);
+  right.appendChild(chip);
+  li.appendChild(left);
+  li.appendChild(right);
+  return li;
 }
 
 // ---- Category picker -----------------------------------------------------------------
