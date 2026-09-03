@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Expense Logger</title>
+<meta name="theme-color" content="#1b6f5c" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="pinScreen" class="screen hidden">
+  <div class="pin-card">
+    <h1>Expense Logger</h1>
+    <p>Enter the shared PIN to continue</p>
+    <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" />
+    <button id="pinSubmit">Unlock</button>
+    <p id="pinError" class="error hidden">Wrong PIN, try again.</p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>Expenses</h1>
+    <nav>
+      <button id="tabLogBtn" class="tab active">Log</button>
+      <button id="tabSummaryBtn" class="tab">Summary</button>
+    </nav>
+  </header>
+
+  <main id="logView" class="view">
+    <form id="logForm">
+      <input id="logInput" type="text" placeholder="Milkbasket 5000" autocomplete="off" autofocus />
+      <button type="submit">Add</button>
+    </form>
+    <p id="logStatus" class="status"></p>
+    <ul id="recentList" class="entry-list"></ul>
+  </main>
+
+  <main id="summaryView" class="view hidden">
+    <div class="month-row">
+      <button id="prevMonth">&lsaquo;</button>
+      <span id="monthLabel"></span>
+      <button id="nextMonth">&rsaquo;</button>
+    </div>
+    <p id="summaryTotal" class="grand-total"></p>
+    <ul id="categoryList" class="category-list"></ul>
+  </main>
+</div>
+
+<div id="categoryPicker" class="sheet hidden">
+  <div class="sheet-inner">
+    <h2>Category</h2>
+    <ul id="categoryOptions" class="category-options"></ul>
+    <button id="categoryCancel" class="secondary">Cancel</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
