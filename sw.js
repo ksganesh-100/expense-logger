@@ -1,7 +1,7 @@
 // Minimal service worker: caches the app shell so it opens instantly.
 // Data requests (to the Apps Script API) are never cached — always network.
 
-const CACHE_NAME = 'expense-logger-v1';
+const CACHE_NAME = 'expense-logger-v2';
 const SHELL_FILES = [
   './index.html',
   './app.js',
@@ -31,7 +31,15 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.includes('script.google.com')) return;
   if (event.request.method !== 'GET') return;
 
+  // Network-first: always try to get the latest shell files so a deploy
+  // shows up immediately. Only fall back to the cache when offline.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
