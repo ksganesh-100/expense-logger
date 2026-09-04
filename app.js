@@ -112,18 +112,56 @@ logForm.addEventListener('submit', async (e) => {
   if (!text) return;
   logInput.value = '';
   logStatus.textContent = 'Saving…';
+
+  // Show the entry immediately using a rough client-side parse — the category
+  // is shown as pending since guessing it needs the real keyword rules on the
+  // server. Swapped for the confirmed entry once the response arrives.
+  const guess = parseAmountAndDescription(text);
+  const optimisticEl = createEntryElement(
+    { date: new Date().toISOString().slice(0, 10), description: guess.description || text, amount: guess.amount, category: '…' },
+    { pending: true }
+  );
+  recentList.prepend(optimisticEl);
+
   try {
     const result = await apiPost({ action: 'log', text });
     if (result.ok) {
       logStatus.textContent = `Added ${result.entry.description} — ₹${result.entry.amount}`;
-      recentList.prepend(createEntryElement(result.entry));
+      optimisticEl.replaceWith(createEntryElement(result.entry));
     } else {
+      optimisticEl.remove();
       logStatus.textContent = 'Failed to save: ' + (result.error || 'unknown error');
     }
   } catch (err) {
+    optimisticEl.remove();
     logStatus.textContent = 'Network error, try again.';
   }
 });
+
+// Mirrors Code.gs's parseText_ — used only for the instant client-side
+// preview, never for what actually gets saved.
+function parseAmountAndDescription(raw) {
+  const matches = raw.match(/[\d][\d,]*(\.\d+)?/g);
+  let amount = 0;
+  let description = raw;
+
+  if (matches && matches.length) {
+    const amtStr = matches[matches.length - 1];
+    amount = parseFloat(amtStr.replace(/,/g, '')) || 0;
+    const idx = raw.lastIndexOf(amtStr);
+    description = raw.slice(0, idx) + raw.slice(idx + amtStr.length);
+  }
+
+  description = description
+    .replace(/[₹$]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\bfor\b\s*$/i, '')
+    .replace(/[-,:]\s*$/, '')
+    .trim();
+
+  if (!description) description = raw.replace(/[\d,.₹$]/g, ' ').replace(/\s+/g, ' ').trim();
+  return { amount, description };
+}
 
 async function loadRecent() {
   const result = await apiGet({ action: 'recent' });
@@ -136,8 +174,10 @@ function renderRecent(entries) {
   entries.forEach((entry) => recentList.appendChild(createEntryElement(entry)));
 }
 
-function createEntryElement(entry) {
+function createEntryElement(entry, opts) {
+  const pending = !!(opts && opts.pending);
   const li = document.createElement('li');
+  if (pending) li.className = 'pending';
 
   const left = document.createElement('div');
   left.innerHTML = `<div class="entry-desc">${escapeHtml(entry.description)}</div>
@@ -151,9 +191,13 @@ function createEntryElement(entry) {
   amount.textContent = `₹${entry.amount}`;
 
   const chip = document.createElement('button');
-  chip.className = 'chip' + (entry.category === 'Miscellaneous' ? ' chip-uncategorized' : '');
+  chip.className = 'chip' + (entry.category === 'Miscellaneous' ? ' chip-uncategorized' : '') + (pending ? ' chip-pending' : '');
   chip.textContent = entry.category;
-  chip.addEventListener('click', () => openCategoryPicker(entry.id));
+  if (pending) {
+    chip.disabled = true;
+  } else {
+    chip.addEventListener('click', () => openCategoryPicker(entry.id));
+  }
 
   right.appendChild(amount);
   right.appendChild(chip);

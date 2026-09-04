@@ -217,15 +217,23 @@ function categorize_(description) {
 }
 
 function getRules_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('rules');
+  if (cached) return JSON.parse(cached);
+
   var sheet = getSheet_(SHEET_RULES);
   var last = sheet.getLastRow();
-  if (last < 2) return [];
-  var rows = sheet.getRange(2, 1, last - 1, 2).getValues();
-  return rows
-    .filter(function (r) { return r[0] !== ''; })
-    .map(function (r) {
-      return { keyword: String(r[0]).toLowerCase().trim(), category: String(r[1]).trim() };
-    });
+  var rules = [];
+  if (last >= 2) {
+    var rows = sheet.getRange(2, 1, last - 1, 2).getValues();
+    rules = rows
+      .filter(function (r) { return r[0] !== ''; })
+      .map(function (r) {
+        return { keyword: String(r[0]).toLowerCase().trim(), category: String(r[1]).trim() };
+      });
+  }
+  cache.put('rules', JSON.stringify(rules), 300);
+  return rules;
 }
 
 function getCategories_() {
@@ -237,15 +245,21 @@ function getCategories_() {
 }
 
 function getCategoryBuckets_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('categoryBuckets');
+  if (cached) return JSON.parse(cached);
+
   var sheet = getSheet_(SHEET_CATEGORIES);
   var last = sheet.getLastRow();
   var map = {};
-  if (last < 2) return map;
-  var rows = sheet.getRange(2, 1, last - 1, 2).getValues();
-  rows.forEach(function (r) {
-    if (r[0] === '') return;
-    map[String(r[0]).trim()] = String(r[1]).trim();
-  });
+  if (last >= 2) {
+    var rows = sheet.getRange(2, 1, last - 1, 2).getValues();
+    rows.forEach(function (r) {
+      if (r[0] === '') return;
+      map[String(r[0]).trim()] = String(r[1]).trim();
+    });
+  }
+  cache.put('categoryBuckets', JSON.stringify(map), 300);
   return map;
 }
 
@@ -291,8 +305,13 @@ function setPin() {
   PropertiesService.getScriptProperties().setProperty('PIN', '1234'); // <-- change me
 }
 
+function clearRuleCache_() {
+  CacheService.getScriptCache().removeAll(['rules', 'categoryBuckets']);
+}
+
 // Optional convenience: create the tabs + seed rules in a fresh spreadsheet.
 function setupSheet() {
+  clearRuleCache_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   var exp = ss.getSheetByName(SHEET_EXPENSES) || ss.insertSheet(SHEET_EXPENSES);
@@ -312,6 +331,8 @@ function setupSheet() {
   cats.getRange(1, 1, 1, 2).setValues([['Category', 'Bucket']]).setFontWeight('bold');
   var catSeed = SEED_CATEGORIES_();
   cats.getRange(2, 1, catSeed.length, 2).setValues(catSeed);
+
+  clearRuleCache_();
 }
 
 // Run this ONCE on an already-live sheet to add the Kakeibo buckets without
@@ -320,6 +341,7 @@ function setupSheet() {
 // categories (toys/books/repair), renames "Kids/Education" to "Education",
 // and appends "Kid Classes" keyword rows if they're not already there.
 function migrateToBuckets() {
+  clearRuleCache_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   var cats = ss.getSheetByName(SHEET_CATEGORIES) || ss.insertSheet(SHEET_CATEGORIES);
@@ -354,6 +376,8 @@ function migrateToBuckets() {
   if (newRows.length) {
     rules.getRange(rules.getLastRow() + 1, 1, newRows.length, 2).setValues(newRows);
   }
+
+  clearRuleCache_();
 }
 
 function KID_CLASS_KEYWORDS_() {

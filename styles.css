@@ -121,6 +121,8 @@ nav { display: flex; gap: 4px; }
 .entry-date { font-size: 0.8rem; color: var(--muted); }
 .entry-right { display: flex; align-items: center; gap: 10px; }
 .entry-amount { font-weight: 700; }
+.entry-list li.pending { opacity: 0.6; }
+.chip-pending { background: #eee; color: var(--muted); }
 .chip {
   border: none;
   background: #eef3f1;
