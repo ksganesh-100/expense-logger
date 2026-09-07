@@ -240,6 +240,9 @@ function getCategories_() {
   var rules = getRules_();
   var set = {};
   rules.forEach(function (r) { if (r.category) set[r.category] = true; });
+  // Also include categories defined in the Categories tab even before any
+  // Rules keyword points to them, so a new category is pickable right away.
+  Object.keys(getCategoryBuckets_()).forEach(function (cat) { set[cat] = true; });
   set[FALLBACK_CATEGORY] = true;
   return Object.keys(set).sort();
 }
