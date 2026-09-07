@@ -308,13 +308,13 @@ function setPin() {
   PropertiesService.getScriptProperties().setProperty('PIN', '1234'); // <-- change me
 }
 
-function clearRuleCache_() {
+function clearRuleCache() {
   CacheService.getScriptCache().removeAll(['rules', 'categoryBuckets']);
 }
 
 // Optional convenience: create the tabs + seed rules in a fresh spreadsheet.
 function setupSheet() {
-  clearRuleCache_();
+  clearRuleCache();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   var exp = ss.getSheetByName(SHEET_EXPENSES) || ss.insertSheet(SHEET_EXPENSES);
@@ -335,7 +335,7 @@ function setupSheet() {
   var catSeed = SEED_CATEGORIES_();
   cats.getRange(2, 1, catSeed.length, 2).setValues(catSeed);
 
-  clearRuleCache_();
+  clearRuleCache();
 }
 
 // Run this ONCE on an already-live sheet to add the Kakeibo buckets without
@@ -344,7 +344,7 @@ function setupSheet() {
 // categories (toys/books/repair), renames "Kids/Education" to "Education",
 // and appends "Kid Classes" keyword rows if they're not already there.
 function migrateToBuckets() {
-  clearRuleCache_();
+  clearRuleCache();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   var cats = ss.getSheetByName(SHEET_CATEGORIES) || ss.insertSheet(SHEET_CATEGORIES);
@@ -380,7 +380,7 @@ function migrateToBuckets() {
     rules.getRange(rules.getLastRow() + 1, 1, newRows.length, 2).setValues(newRows);
   }
 
-  clearRuleCache_();
+  clearRuleCache();
 }
 
 function KID_CLASS_KEYWORDS_() {
